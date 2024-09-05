@@ -1,0 +1,62 @@
+volumes:
+  prometheus-data:
+    driver: local
+    name: prometheus-data
+    labels:
+      owner: markruler
+      purpose: personal-computer
+  grafana-data:
+    driver: local
+    name: grafana-data
+    labels:
+      owner: markruler
+      purpose: personal-computer
+
+services:
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:v2.54.1
+    restart: always
+    ports:
+      - 9090:9090
+    volumes: # host:container
+      - ./prometheus/:/etc/prometheus/
+      - prometheus-data:/prometheus
+    command:
+      # https://manpages.debian.org/unstable/prometheus/prometheus.1.en.html
+      - '--config.file=/etc/prometheus/prometheus.yaml'
+      # https://prometheus.io/docs/prometheus/latest/storage/#operational-aspects
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--storage.tsdb.retention.size=10GB'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    depends_on:
+      - node-exporter
+  
+  node-exporter:
+    container_name: node-exporter
+    image: prom/node-exporter:v1.8.2
+    restart: always
+    ports:
+      - 9100:9100
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+
+  grafana:
+    image: grafana/grafana:11.2.0-ubuntu
+    container_name: grafana
+    restart: always
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=changeme
